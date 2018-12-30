@@ -51,18 +51,13 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     # le chemin d'accès commence par /ponctualite
     elif self.path_info[0] == 'ponctualite':
       self.send_ponctualite()
-      
+    #L'utilisateur a spécifié un intervalle d'années
     elif self.path_info[0] == 'YearSpan':
         self.send_ponctualite(True)
         
     # ou pas...
     else:
       self.send_static()
-      
-    # On regarde ensuite dans la Query
-    
-    
-
   #
   # On surcharge la méthode qui traite les requêtes HEAD
   #
@@ -92,14 +87,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     info = urlparse(self.path)
     
     self.path_info = [unquote(v) for v in info.path.split('/')[1:]]  # info.path.split('/')[1:]
-    #print("PATH INFO",self.path_info)
-    #self.query_string = info.query
-    # On split la query pour la mettre dans un tableau
-    #self.query_tab = [elem.split('=') for elem in info.query.split('&')]
-    #print("*-*QUERY TAB*-* ",self.query_tab)
-    # [ ['year1','2010'], ['year2','2012'] ]
     self.params = parse_qs(info.query)
-
     # récupération du corps
     length = self.headers.get('Content-Length')
     ctype = self.headers.get('Content-Type')
@@ -109,11 +97,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.params = parse_qs(self.body)
     else:
       self.body = ''
-   
-    # traces
-    #print('info_path =',self.path_info)
-    #print('body =',length,ctype,self.body)
-    #print('params =', self.params)
     
   #
   # On envoie un document avec l'heure
@@ -155,10 +138,15 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
   # On génère et on renvoie un graphique pour la température sur tous les relevés
   #
   def send_ponctualite(self, query = False):
-
+      
+    """Fonction qui renvoie un graphique d'évolution des températures
+    d'une station météo"""
+      
     conn = sqlite3.connect('temp.sqlite')
     c = conn.cursor()
-    
+
+    # Si il y a une query alors qu'1 possibilité c'est demande d'afficher entre deux années
+    #Sinon c'est le même code qu'avant
     if query == False:
         if len(self.path_info) <= 1 or self.path_info[1] == '' :   # pas de paramètre => liste par défaut
             # Definition des régions et des couleurs de tracé
@@ -190,7 +178,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     ax.yaxis.set_label_text("Temperature (en degré)")
 
 
-    # boucle sur les régions
+    #Cas où pas d'années de début et de fin spécifiées
     if query == False:
         for l in (STAID) :
             c.execute("SELECT * FROM 'TG_1978-2018' WHERE STAID=?",l[:1])  # ou (l[0],)
@@ -200,13 +188,13 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             # récupération de la régularité (colonne 8)
             y = [float(a[3]) for a in r]
     else:
-        #print("self.params['STAID'] ",self.params['STAID'])
         c.execute("SELECT * FROM 'TG_1978-2018' WHERE STAID=?",self.params['STAID'])  # ou (l[0],)
         r = c.fetchall()
         R = []
         debut = int(self.params['debut'][0])
         fin = int(self.params['fin'][0])
-        
+        # On ne garde que les éléments qui sont les bonnes années
+        # On peut le faire directelent dans la requête SQL mais flemme
         for elem in r:
             year = int(elem[2][0:4])
             #print(year,debut,fin)
@@ -217,7 +205,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         # récupération de la régularité (colonne 8)
         y = [float(a[3]) for a in R]
     
-    
+    #Dilatation ou rétraction...
     y_fin = multiplication_liste(y)
     # tracé de la courbe
     plt.plot(x,y_fin,linewidth=0.2, linestyle='-', marker='o', color="blue", label=str(STAID[0][0]))
@@ -231,6 +219,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     plt.savefig('client/{}'.format(fichier))
     plt.close()
     
+    #Génération de l'html qui va afficher l'image à part
     html='<!DOCTYPE html><title>Temperature</title>' +\
     '<meta charset="utf-8">' +\
     '<img src="/{}?{}" alt="ponctualite {}" width="100%">'.format(fichier,self.date_time_string(),self.path)
@@ -238,10 +227,17 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             'title': 'Température pour la station n° '+str(STAID[0][0]), \
             'img': '/'+fichier \
              });
-    print("BODY",body)
     # on envoie
-    # headers = [('Content-Type','application/json')];
-    self.send(html)
+    headers = [('Content-Type','application/json')];
+    if query == False:
+        self.send(body,headers)
+    else:
+        self.send(html)
+        
+    """ NOTE: Lorsqu'on règle les images ça s'affiche sale dans une autre page
+    C'est lié à l'usage du formulaire qui passe par l'URL et donc qui va 
+    regarder sur une autre page et du coup on peut pas reproduire la technique
+    utilisée précédemment...."""
     
   #
   # On envoie les entêtes et le corps fourni
