@@ -15,20 +15,25 @@
 <body onload="load_data()">  <!-- Récupération des données avec le chargement de la page -->
 
 <h1>Les Températures en France</h1>
-
  <!-- <label><span>Région :</span><input id="region" name="Region"> 
  <button id="bouton">Afficher la courbe</button>  </label>  -->
  <div id="map"></div>  
-
 <div id="reponse">
   <p align="center"></p>
   <img width="70%" src="" />
 </div>
 <div>
-  <h3> Choississez les deux années que vous souhaitez comparer </h3>
+  <h3> Choississez de quelle année à quelle année vous souhaitez afficher les températures </h3>
   <form id="station_form" action='YearSpan'>
-    Année début: <input id="debut" type="text" name="debut"><br>
-    Année fin: <input id="fin" type="text" name="fin"><br>
+    Année de début: <input id="debut" type="text" name="debut"><br>
+    Année de fin: <input id="fin" type="text" name="fin"><br>
+    <!--Pas de temps (jours): <input id="pas" type="text" name="pas"><br>-->
+    <!--Numéro de station: <input id="STAID" type="text" name="STAID"><br>-->
+    <input type="submit" value="Submit">
+  </form>
+  <p></p>
+  <form id="station_comp" action='compareSta'>
+    Station à comparer: <input id="ST2" type="text" name="ST2"><br>
     <!--Numéro de station: <input id="STAID" type="text" name="STAID"><br>-->
     <input type="submit" value="Submit">
   </form>
@@ -44,30 +49,69 @@ L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
      }).addTo(map);
 
+// script qui gère le formulaire pour les années de début et de fin
+// On récupère station_form qui est en fait le formulaire placé plus haut d'id station_form
 var station_form = document.getElementById("station_form");
+
 station_form.onsubmit = function(e)
 {
+  // Cette ligne bloque le submit traditionnel
   e.preventDefault();
-
+  // Current est le numéro de station actuel
   if(current != -1)
   {
+    // On récupère les différentes données
     var debut = document.getElementById("debut");
     var fin = document.getElementById("fin");
+    //var pas = document.getElementById("pas");
     var STAID = document.getElementById("STAID");
-
+    var image =  document.querySelector('#reponse img');
+    // On initialise une nouvelle requête
     var xhr = new XMLHttpRequest();
 
+    // On définit le onload, une fois la réponse reçu on execute ça
     xhr.onload = function()
     {
       console.log("Response received");
-      var image =  document.querySelector('#reponse img');
-      image.src = '/courbes/ponctualite_' + current + '.png?' + new Date().getTime();
+      image.src = '/courbes/temperature_' + current + '.png?' + new Date().getTime();
     }
-
-    xhr.open('GET','/YearSpan?debut=' + debut.value + "&fin=" + fin.value + "&STAID=" + current,true);
+    // Animation GIF entre l'envoi de la requête et la réception de le réponse
+    image.src = 'https://thumbs.gfycat.com/LameDifferentBalloonfish-small.gif';
+    // Envoi de la requête
+    xhr.open('GET','/YearSpan?debut=' + debut.value + "&fin=" + fin.value + "&STAID=" + current,true /* + "&pas=" + pas.value*/,true);
     xhr.send();
     console.log("Request send");
   }
+}
+
+// formulaire pour la comparaison de stations
+// Se référer aux commentaires de station_form c'est la même chose
+var station_comp = document.getElementById("station_comp");
+station_comp.onsubmit = function(e)
+{
+  e.preventDefault();
+
+  
+  var STAID = document.getElementById("STAID");
+  var ST2 = document.getElementById("ST2");
+  var debut = document.getElementById("debut");
+  var fin = document.getElementById("fin");
+  var image =  document.querySelector('#reponse img');
+
+  var xhr = new XMLHttpRequest();
+
+  xhr.onload = function()
+  {
+    console.log("Response received");
+    image.src = '/courbes/temperature_' + current + '.png?' + new Date().getTime();
+  }
+
+  image.src = 'https://thumbs.gfycat.com/LameDifferentBalloonfish-small.gif';
+  xhr.open('GET','/STComp?STAID=' + current + "&ST2=" + ST2.value + "&debut=" + debut.value + "&fin=" + fin.value,true);
+  xhr.send();
+  console.log("Request send");
+  
+
 }
 
 function load_data () {
@@ -104,28 +148,9 @@ function OnMarkerClick (e) {
   };
 
   current = e.target.idreg;
-  xhr.open('GET','/ponctualite/' + e.target.idreg, true);  // on récupère la courbe par un appel au serveur
+  image.src = 'https://thumbs.gfycat.com/LameDifferentBalloonfish-small.gif';
+  xhr.open('GET','/temperature/' + e.target.idreg, true);  // on récupère la courbe par un appel au serveur
   xhr.send();
 }
 
-
-/*
-function SetYearSpan(e){
-  var xhr = new XMLHttpRequest();
-  var image =  document.querySelector('#reponse img'),
-        legende = document.querySelector('#reponse p');
-  xhr.onload = function() {   // fonction callback
-      var data = JSON.parse(this.responseText)
-      image.src = data.img;
-      image.alt = data.title;
-      legende.innerHTML = data.title;
-      };
-    xhr.open('GET','/YearSpan/'+e.target.idreg,true);  // on récupère la courbe par un appel au serveur
-    xhr.send();
-  
-}*/ 
-
-
-
 </script>
-
